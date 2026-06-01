@@ -53,8 +53,7 @@ def main():
 
         if status != previous_status:
             print(f"[bot] status changed: {previous_status!r} -> {status!r}")
-            if previous_status is not None:
-                send_telegram(status)
+            send_telegram(status)
             previous_status = status
 
         time.sleep(POLL_INTERVAL)
