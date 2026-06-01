@@ -2,10 +2,20 @@ services:
   tschecker:
     build: .
     ports:
-      - "8080:8080"
+      - "1234:8080"
     volumes:
       - ./config.yaml:/app/config.yaml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       - CONFIG_PATH=/app/config.yaml
+    restart: unless-stopped
+
+  tsbot:
+    build: .
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - CONFIG_PATH=/app/config.yaml
+    command: ["python", "bot.py"]
     restart: unless-stopped

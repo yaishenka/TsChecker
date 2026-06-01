@@ -1,0 +1,10 @@
+token: "change-me"
+container_name: "target-container"
+telegram:
+  bot_token: "123456:ABC-your-bot-token"
+  chat_id: "123456789"
+  poll_interval: 3600  # seconds
+  messages:
+    running: "Container is UP"
+    stopped: "Container is DOWN"
+    not_found: "Container not found"
