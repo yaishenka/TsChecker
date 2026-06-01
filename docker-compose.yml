@@ -6,8 +6,10 @@ services:
     volumes:
       - ./config.yaml:/app/config.yaml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./logs:/logs
     environment:
       - CONFIG_PATH=/app/config.yaml
+    command: ["sh", "-c", "python -u server.py 2>&1 | tee /logs/server_$$(date +%Y%m%d_%H%M%S).log"]
     restart: unless-stopped
 
   tsbot:
@@ -15,7 +17,8 @@ services:
     volumes:
       - ./config.yaml:/app/config.yaml:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./logs:/logs
     environment:
       - CONFIG_PATH=/app/config.yaml
-    command: ["python", "bot.py"]
+    command: ["sh", "-c", "python -u bot.py 2>&1 | tee /logs/bot_$$(date +%Y%m%d_%H%M%S).log"]
     restart: unless-stopped
