@@ -2,8 +2,11 @@ token: "change-me"
 container_name: "target-container"
 telegram:
   bot_token: "123456:ABC-your-bot-token"
-  chat_id: "123456789"
+  chat_ids:
+    - "123456789"
+    - "-1001234567890"
   poll_interval: 3600  # seconds
+  notify_on_start: false
   messages:
     started: "TsChecker bot started"
     running: "Container is UP"
