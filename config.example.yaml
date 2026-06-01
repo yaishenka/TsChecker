@@ -5,6 +5,7 @@ telegram:
   chat_id: "123456789"
   poll_interval: 3600  # seconds
   messages:
+    started: "TsChecker bot started"
     running: "Container is UP"
     stopped: "Container is DOWN"
     not_found: "Container not found"

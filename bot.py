@@ -26,8 +26,7 @@ def get_container_status(client):
         return "not_found"
 
 
-def send_telegram(status):
-    text = MESSAGES.get(status, f"Status: {status}")
+def send_telegram_text(text):
     try:
         resp = requests.post(TELEGRAM_URL, json={"chat_id": CHAT_ID, "text": text}, timeout=10)
         resp.raise_for_status()
@@ -35,11 +34,19 @@ def send_telegram(status):
         print(f"[telegram] failed to send message: {e}")
 
 
+def send_telegram(status):
+    send_telegram_text(MESSAGES.get(status, f"Status: {status}"))
+
+
 def main():
     client = docker.from_env()
     previous_status = None
 
     print(f"[bot] watching container '{CONTAINER_NAME}', poll interval {POLL_INTERVAL}s")
+
+    started_text = MESSAGES.get("started")
+    if started_text:
+        send_telegram_text(started_text)
 
     while True:
         status = get_container_status(client)
