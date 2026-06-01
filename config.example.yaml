@@ -12,3 +12,7 @@ telegram:
     running: "Container is UP"
     stopped: "Container is DOWN"
     not_found: "Container not found"
+  command_messages:
+    running: "Container is currently running"
+    stopped: "Container is currently stopped"
+    not_found: "Container not found"

@@ -17,6 +17,7 @@ CHAT_IDS = set(str(c) for c in TG["chat_ids"])
 POLL_INTERVAL = int(TG.get("poll_interval", 3600))
 NOTIFY_ON_START = bool(TG.get("notify_on_start", False))
 MESSAGES = TG.get("messages", {})
+COMMAND_MESSAGES = TG.get("command_messages", {})
 
 API_BASE = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
@@ -65,7 +66,8 @@ def command_listener():
                 if chat_id in CHAT_IDS and text.startswith("/ts_status"):
                     status = get_container_status()
                     print(f"[commands] /ts_status requested by chat {chat_id}, status={status}")
-                    send_to_chat(status_message(status), chat_id)
+                    reply = COMMAND_MESSAGES.get(status, status_message(status))
+                    send_to_chat(reply, chat_id)
         except requests.RequestException as e:
             print(f"[commands] request error: {e}")
             time.sleep(5)
