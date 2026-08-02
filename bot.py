@@ -43,9 +43,12 @@ class CheckerClient:
                 return "server_unreachable"
 
             payload = response.json()
-            if not isinstance(payload, dict) or payload.get("status") not in CHECKER_STATUSES:
+            if not isinstance(payload, dict):
                 return "server_unreachable"
-            return payload["status"]
+            status = payload.get("status")
+            if not isinstance(status, str) or status not in CHECKER_STATUSES:
+                return "server_unreachable"
+            return status
         except (requests.RequestException, ValueError):
             return "server_unreachable"
 
@@ -104,7 +107,7 @@ def create_app(config: dict, monitor: StatusMonitor) -> Flask:
 
     @app.get("/status")
     def status():
-        if request.args.get("token", "") != page_token:
+        if not page_token or request.args.get("token") != page_token:
             return (
                 "<h2>403 Forbidden</h2><p>Invalid or missing token.</p>",
                 403,
