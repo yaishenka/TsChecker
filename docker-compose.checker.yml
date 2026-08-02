@@ -1,0 +1,12 @@
+services:
+  checker:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.checker.yaml:/app/config.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      CONFIG_PATH: /app/config.yaml
+    command: python -u server.py
+    restart: unless-stopped
