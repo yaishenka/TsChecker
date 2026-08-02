@@ -1,4 +1,5 @@
 import os
+import time
 from collections.abc import Callable
 
 import docker
@@ -20,7 +21,7 @@ def create_app(config: dict, docker_client_factory: Callable[[], object]) -> Fla
 
         try:
             container = docker_client_factory().containers.get(container_name)
-            logs = container.logs(since=300)
+            logs = container.logs(since=time.time() - 300)
             status = (
                 "license_expired"
                 if logs_indicate_expired_license(logs)

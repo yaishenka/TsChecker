@@ -1,3 +1,4 @@
+import time
 from unittest.mock import Mock
 
 import docker
@@ -31,6 +32,24 @@ def test_license_log_overrides_running_status():
     )
 
     assert response.get_json() == {"container_name": "ts", "status": "license_expired"}
+
+
+# Bug caught: passing a fixed `since=300` causes Docker to read logs from 1970.
+def test_status_reads_logs_from_the_previous_five_minutes():
+    container = Mock(status="running")
+    container.logs.return_value = b""
+    docker_client = Mock()
+    docker_client.containers.get.return_value = container
+
+    before_request = time.time()
+    response = make_client(docker_client).get(
+        "/api/v1/status", headers={"Authorization": "Bearer checker-secret"}
+    )
+    after_request = time.time()
+
+    since = container.logs.call_args.kwargs["since"]
+    assert before_request - 301 <= since <= after_request - 299
+    assert response.get_json() == {"container_name": "ts", "status": "running"}
 
 
 # Bug caught: Docker socket failures leak as server errors instead of checker not-found state.
