@@ -3,6 +3,7 @@ import time
 from collections.abc import Callable
 
 import docker
+import requests
 import yaml
 from flask import Flask, jsonify, request
 
@@ -11,7 +12,9 @@ from monitoring import logs_indicate_expired_license, normalize_docker_status
 
 def create_app(config: dict, docker_client_factory: Callable[[], object]) -> Flask:
     app = Flask(__name__)
-    checker_token = config["checker_token"]
+    checker_token = config.get("checker_token")
+    if not isinstance(checker_token, str) or not checker_token.strip():
+        raise ValueError("checker_token must be a non-empty string")
     container_name = config["container_name"]
 
     @app.get("/api/v1/status")
@@ -27,7 +30,7 @@ def create_app(config: dict, docker_client_factory: Callable[[], object]) -> Fla
                 if logs_indicate_expired_license(logs)
                 else normalize_docker_status(container.status)
             )
-        except (docker.errors.NotFound, docker.errors.DockerException):
+        except (docker.errors.NotFound, docker.errors.DockerException, requests.RequestException):
             status = "not_found"
 
         return jsonify(container_name=container_name, status=status)
