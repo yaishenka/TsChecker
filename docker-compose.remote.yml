@@ -1,0 +1,11 @@
+services:
+  remote-monitor:
+    build: .
+    ports:
+      - "1234:8080"
+    volumes:
+      - ./config.remote.yaml:/app/config.yaml:ro
+    environment:
+      - CONFIG_PATH=/app/config.yaml
+    command: ["python", "-u", "bot.py"]
+    restart: unless-stopped
