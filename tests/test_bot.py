@@ -82,6 +82,17 @@ def test_list_checker_status_becomes_server_unreachable():
     assert client.fetch_status() == "server_unreachable"
 
 
+# Bug caught: an object-valued checker status raises or becomes a usable remote state.
+def test_object_checker_status_becomes_server_unreachable():
+    client = CheckerClient(
+        "http://checker/api/v1/status",
+        "secret",
+        10,
+        lambda *args, **kwargs: FakeResponse(200, {"status": {}}),
+    )
+    assert client.fetch_status() == "server_unreachable"
+
+
 # Bug caught: a non-success checker response is mistaken for a valid status response.
 def test_non_200_checker_response_becomes_server_unreachable():
     client = CheckerClient(
