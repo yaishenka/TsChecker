@@ -1,3 +1,4 @@
+import json
 import os
 import threading
 import time
@@ -136,7 +137,7 @@ class TelegramBot:
         self.send_message(message, chat_id)
 
     def poll_once(self, offset: int | None) -> int | None:
-        params = {"timeout": 30, "allowed_updates": ["message"]}
+        params = {"timeout": 30, "allowed_updates": json.dumps(["message"])}
         if offset is not None:
             params["offset"] = offset
         response = self.http_get(

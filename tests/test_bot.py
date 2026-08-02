@@ -1,3 +1,4 @@
+import subprocess
 from unittest.mock import Mock, call
 
 import requests
@@ -234,8 +235,8 @@ def test_watcher_suppresses_initial_notification_when_disabled():
     assert send_message.call_args_list == [call("DOWN", "123456789")]
 
 
-# Bug caught: Telegram long polling replays updates or accepts commands from unknown chats.
-def test_telegram_poll_filters_chats_and_advances_update_offset():
+# Bug caught: allowed_updates is sent as message instead of Telegram's JSON array.
+def test_telegram_poll_serializes_allowed_updates_and_preserves_listener_behavior():
     monitor = Mock(current_status="running")
     monitor.get_status.return_value = "running"
     send_message = Mock()
@@ -244,6 +245,9 @@ def test_telegram_poll_filters_chats_and_advances_update_offset():
     def recording_get(url, **kwargs):
         observed["url"] = url
         observed.update(kwargs)
+        observed["prepared_url"] = requests.Request(
+            "GET", url, params=kwargs["params"]
+        ).prepare().url
         return TelegramUpdatesResponse(
             [
                 {
@@ -284,9 +288,13 @@ def test_telegram_poll_filters_chats_and_advances_update_offset():
     assert next_offset == 43
     assert observed == {
         "url": "https://api.telegram.org/botsecret/getUpdates",
+        "prepared_url": (
+            "https://api.telegram.org/botsecret/getUpdates?timeout=30&"
+            "allowed_updates=%5B%22message%22%5D&offset=37"
+        ),
         "params": {
             "timeout": 30,
-            "allowed_updates": ["message"],
+            "allowed_updates": '["message"]',
             "offset": 37,
         },
         "timeout": 35,
@@ -347,3 +355,15 @@ def test_ts_status_rejects_longer_unrelated_command():
     telegram.handle_command("/ts_status_bad", "123456789")
 
     send_message.assert_not_called()
+
+
+# Bug caught: documented runtime config secrets can be accidentally committed.
+@pytest.mark.parametrize("config_name", ["config.checker.yaml", "config.remote.yaml"])
+def test_secret_bearing_runtime_configs_are_gitignored(config_name):
+    result = subprocess.run(
+        ["git", "check-ignore", "--quiet", config_name],
+        cwd=__file__.rsplit("/tests/", 1)[0],
+        check=False,
+    )
+
+    assert result.returncode == 0
