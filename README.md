@@ -1,86 +1,123 @@
 # TsChecker
 
-A minimal HTTP server that exposes a browser-friendly status page for a Docker container running on the same host. Includes a Telegram bot that sends notifications when the container status changes. Access to the status page is protected by a token passed in the URL.
+TsChecker monitors one Docker container across two hosts. A small checker runs
+beside the TS container and exposes an authenticated JSON status endpoint. A
+single remote-monitor container polls that endpoint, sends Telegram transition
+notifications, answers `/ts_status`, and serves a token-protected status page.
 
 ## Requirements
 
-- Docker
-- Docker Compose
+- Docker and Docker Compose on both hosts
+- Network access from the remote host to port 8080 on the TS host
+- A Telegram bot token and the allowed Telegram chat IDs
 
-## Setup
+Clone this repository on both hosts before following the matching section.
 
-**1. Clone the repo and enter the directory:**
+## 1. Deploy the checker on the TS host
 
-```bash
-git clone <repo-url>
-cd TsChecker
-```
-
-**2. Copy the example config and edit it:**
+The checker is the only service that reads the local Docker socket. Copy its
+configuration and edit the token and exact TS container name:
 
 ```bash
-cp config.example.yaml config.yaml
+cp config.checker.example.yaml config.checker.yaml
 ```
 
 ```yaml
-token: "your-secret-token"      # used to authenticate the status page URL
-container_name: "my-container"  # name of the container to monitor
+checker_token: "replace-with-a-long-random-secret"
+container_name: "target-container"
+```
+
+Start only the checker deployment:
+
+```bash
+docker compose -f docker-compose.checker.yml up --build -d
+```
+
+The checker publishes this contract on TS-host port 8080:
+
+```text
+GET /api/v1/status
+Authorization: Bearer <checker-token>
+```
+
+A successful response is HTTP 200 JSON:
+
+```json
+{"container_name": "target-container", "status": "running"}
+```
+
+An absent or invalid bearer token returns HTTP 401. Restrict network access to
+this port to the remote host where possible; the checker endpoint uses HTTP.
+
+## 2. Deploy the monitor on the remote host
+
+The remote deployment has no Docker socket access. Copy its configuration:
+
+```bash
+cp config.remote.example.yaml config.remote.yaml
+```
+
+Set `checker_url` to the TS host's reachable address, use the same
+`checker_token`, and replace the page and Telegram secrets:
+
+```yaml
+page_token: "replace-with-another-long-random-secret"
+checker_url: "http://<ts-host>:8080/api/v1/status"
+checker_token: "replace-with-the-checker-secret"
+request_timeout: 10
 telegram:
-  bot_token: "123456:ABC-your-bot-token"  # from @BotFather
-  chat_id: "123456789"                    # target chat or user ID
-  poll_interval: 3600                     # check interval in seconds (default: 1 hour)
+  bot_token: "123456:ABC-your-bot-token"
+  chat_ids: ["123456789"]
+  poll_interval: 3600
+  notify_on_start: false
   messages:
     running: "Container is UP"
     stopped: "Container is DOWN"
     not_found: "Container not found"
+    restarting: "Container is restarting"
+    license_expired: "TS license expired"
+    server_unreachable: "TS checker is unreachable"
+  command_messages:
+    running: "Container is currently running"
 ```
 
-**3. Build and start:**
+`messages` controls transition notifications. `command_messages` can override
+the reply for `/ts_status`; omitted command messages fall back to the matching
+transition message and then to `Status: <status>`.
+
+Start the single remote-monitor container:
 
 ```bash
-docker compose up --build -d
+docker compose -f docker-compose.remote.yml up --build -d
 ```
 
-## Usage
+Open the protected page at:
 
-Open in a browser:
-
-```
-http://localhost:1234/status?token=your-secret-token
+```text
+http://<remote-host>:1234/status?token=<page-token>
 ```
 
-The page displays the container name and its current status (e.g. `running`, `exited`, `not_found`).
+An invalid or missing page token returns HTTP 403. The Telegram bot accepts
+`/ts_status` only from the configured `chat_ids`, and notifications are sent
+only when the effective status changes (plus the initial state when
+`notify_on_start` is true).
 
-An invalid or missing token returns a **403** page.
+## Status meanings
 
-## Configuration
+| Status | Meaning |
+| --- | --- |
+| `running` | The TS container is running. |
+| `stopped` | The container exists but is not running or restarting. |
+| `restarting` | Docker reports that the container is restarting. |
+| `not_found` | The container is absent, or the checker could not inspect Docker or its logs. |
+| `license_expired` | Recent TS logs contain the default-license expiry message; this overrides Docker state. |
+| `server_unreachable` | The remote monitor could not obtain a valid checker response. This remote-only status is never returned by the checker API. |
 
-| Field                        | Description                                      |
-|------------------------------|--------------------------------------------------|
-| `token`                      | Secret token required in the status page URL     |
-| `container_name`             | Name of the Docker container to monitor          |
-| `telegram.bot_token`         | Telegram bot token from @BotFather               |
-| `telegram.chat_id`           | Chat or user ID to send notifications to         |
-| `telegram.poll_interval`     | How often to check status, in seconds            |
-| `telegram.messages.<status>` | Custom text for each status (`running`, `stopped`, `not_found`, etc.) |
+## Current HTTP-only boundary
 
-The config file is mounted read-only into the containers at `/app/config.yaml`. To apply changes, restart the services:
+Both the checker API and remote status page are intentionally HTTP-only. The
+page token and checker bearer token are therefore not protected from network
+observation. Use only within an appropriately trusted or restricted network.
 
-```bash
-docker compose restart
-```
-
-## Telegram Bot
-
-The `tsbot` service polls the container status every `poll_interval` seconds. When the status changes, it sends the corresponding message from `config.yaml` to the configured chat.
-
-To get a bot token: message [@BotFather](https://t.me/BotFather) on Telegram and use `/newbot`.
-To get your chat ID: message [@userinfobot](https://t.me/userinfobot).
-
-## Sharing the link
-
-Share the full URL including the token with anyone who needs to check the status:
-
-```
-http://<your-host>:1234/status?token=your-secret-token
-```
+DNS, Nginx, HTTPS/TLS, certificates, and domain routing are intentionally
+deferred and are not part of this deployment.

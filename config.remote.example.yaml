@@ -1,0 +1,11 @@
+page_token: "change-me"
+checker_url: "http://ts-host:8080/api/v1/status"
+checker_token: "change-me"
+request_timeout: 10
+telegram:
+  bot_token: "123456:ABC-your-bot-token"
+  chat_ids: ["123456789"]
+  poll_interval: 3600
+  notify_on_start: false
+  messages: {}
+  command_messages: {}
